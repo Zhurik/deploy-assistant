@@ -1,0 +1,22 @@
+.selected {
+    background: blue;
+    color: white;
+}
+
+.error {
+    background: red;
+    color: white;
+}
+
+.clean {
+    background: green;
+    color: white;
+}
+
+Collapsible {
+    width: 100%;
+}
+
+Collapsible Label {
+    width: 100%;
+}

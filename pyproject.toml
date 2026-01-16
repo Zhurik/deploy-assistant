@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deploy-assistant"
+version = "0.1.0"
+description = "Simple TUI app for helping with deploying"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6.0.3",
+    "textual>=7.3.0",
+    "tqdm>=4.67.1",
+]
+
+[project.scripts]
+deploy-assistant = "deploy_assistant.main:main"
