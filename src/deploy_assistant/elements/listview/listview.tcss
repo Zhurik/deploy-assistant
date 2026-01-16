@@ -9,7 +9,7 @@
 }
 
 .clean {
-    background: green;
+    background: grey;
     color: white;
 }
 
@@ -19,4 +19,21 @@ Collapsible {
 
 Collapsible Label {
     width: 100%;
+}
+
+/* Pipeline status colors */
+Label.pipeline-success {
+    color: green;
+}
+
+Label.pipeline-failed {
+    color: red;
+}
+
+Label.pipeline-running {
+    color: orange;
+}
+
+Label.pipeline-pending {
+    color: yellow;
 }

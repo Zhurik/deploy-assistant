@@ -6,7 +6,11 @@ from textual.widgets import (
     Footer,
     Header,
     TextArea,
+    Label,
 )
+from textual.reactive import reactive
+from deploy_assistant.git import LocalRepo
+from deploy_assistant.elements.modal.modal import SelectedItemsScreen
 
 from deploy_assistant.git import LocalRepo
 from deploy_assistant.elements.modal.modal import SelectedItemsScreen
@@ -49,6 +53,8 @@ class CollapsibleListViewApp(App):
                     service.version,
                     service.commits_ahead,
                     service.commit_messages,
+                    getattr(service, "pipeline_status", None),
+                    getattr(service, "pipeline_url", None),
                 ),
             )
 
@@ -59,24 +65,59 @@ class CollapsibleListViewApp(App):
 
         # Create collapsible items with service data
         items = []
-        for i, (name, version, commits_ahead, commit_messages) in enumerate(
-            repo_info_list
-        ):
+        for i, (
+            name,
+            version,
+            commits_ahead,
+            commit_messages,
+            pipeline_status,
+            pipeline_url,
+        ) in enumerate(repo_info_list):
             # Create formatted title with aligned columns
             padded_name = name.ljust(max_name_len)
             padded_version = version.ljust(max_version_len)
             padded_commits = str(commits_ahead).rjust(max_commits_len)
-            title_text = f"{padded_name} | {padded_version} | {padded_commits}"
 
-            # Use TextArea for editable commit messages
-            collapsible_content = TextArea(
+            # Add pipeline status to title if available
+            title_parts = [f"{padded_name} | {padded_version} | {padded_commits}"]
+            if pipeline_status:
+                title_parts.append(f" | Pipeline: {pipeline_status}")
+
+            title_text = "".join(title_parts)
+
+            # Create content with both commit messages and pipeline info
+            content_widgets = []
+
+            # Add commit messages
+            commit_text_area = TextArea(
                 commit_messages, id=f"commit-messages-{i}", language="markdown"
             )
-            collapsible_content.styles.height = 10
-            collapsible_content.read_only = False
+            commit_text_area.styles.height = 10
+            commit_text_area.read_only = False
+            content_widgets.append(Label("Commit Messages:"))
+            content_widgets.append(commit_text_area)
+
+            # Add pipeline info if available
+            if pipeline_status is not None:
+                pipeline_info = f"Pipeline Status: {pipeline_status}"
+                if pipeline_url:
+                    pipeline_info += f"\nPipeline URL: {pipeline_url}"
+                pipeline_label = Label(pipeline_info)
+                pipeline_label.styles.margin = (1, 0, 0, 0)
+
+                # Add CSS class based on pipeline status
+                if pipeline_status.lower() == "success":
+                    pipeline_label.add_class("pipeline-success")
+                elif pipeline_status.lower() == "failed":
+                    pipeline_label.add_class("pipeline-failed")
+                elif pipeline_status.lower() in ["running", "pending"]:
+                    pipeline_label.add_class("pipeline-running")
+
+                content_widgets.append(Label("Pipeline Info:"))
+                content_widgets.append(pipeline_label)
 
             collapsible = Collapsible(
-                collapsible_content,
+                *content_widgets,
                 collapsed=True,
                 title=title_text,
             )
@@ -103,15 +144,20 @@ class CollapsibleListViewApp(App):
     def action_toggle_collapsible(self) -> None:
         """Toggle the currently highlighted collapsible item."""
         list_view = self.query_one(ListView)
-        collapsible = list_view.highlighted_child.query_one(Collapsible)
-        collapsible.collapsed = not collapsible.collapsed
+        if list_view.highlighted_child is not None:
+            collapsible = list_view.highlighted_child.query_one(Collapsible)
+            if collapsible is not None:
+                collapsible.collapsed = not collapsible.collapsed
 
     def action_collapse_or_expand(self, expand: bool) -> None:
         """Expand all collapsible items."""
         list_view = self.query_one(ListView)
-        for item in list_view.children:
-            collapsible = item.query_one(Collapsible)
-            collapsible.collapsed = expand
+        if list_view is not None:
+            for item in list_view.children:
+                if item is not None:
+                    collapsible = item.query_one(Collapsible)
+                    if collapsible is not None:
+                        collapsible.collapsed = expand
 
     """
     Select actions
@@ -120,20 +166,34 @@ class CollapsibleListViewApp(App):
     def action_toggle_all(self) -> None:
         """Toggle selection of all items."""
         list_view = self.query_one(ListView)
+        if list_view is None:
+            return
 
         all_selected = len(self.selected_items) == len(self.services)
 
         self.selected_items.clear()
 
         for item in list_view.children:
-            item.query_one(Collapsible).remove_class("selected")
+            if item is not None:
+                try:
+                    collapsible = item.query_one(Collapsible)
+                    if collapsible is not None:
+                        collapsible.remove_class("selected")
+                except Exception:
+                    pass
 
         if not all_selected:
             for service in self.services:
                 self.selected_items.add(service)
 
             for item in list_view.children:
-                item.query_one(Collapsible).add_class("selected")
+                if item is not None:
+                    try:
+                        collapsible = item.query_one(Collapsible)
+                        if collapsible is not None:
+                            collapsible.add_class("selected")
+                    except Exception:
+                        pass
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Called when an item in the ListView is selected."""
@@ -190,3 +250,42 @@ class CollapsibleListViewApp(App):
     def action_display_selected(self) -> None:
         """Display the names of selected items with version upgrade info."""
         self.push_screen(SelectedItemsScreen(list(self.selected_items)))
+
+    def refresh_pipeline_statuses(self) -> None:
+        """Refresh the display with updated pipeline statuses."""
+        list_view = self.query_one("#main-list-view", ListView)
+        if list_view is None:
+            return
+
+        max_name_len = 0
+        max_version_len = 0
+        max_commits_len = 0
+
+        # Calculate max lengths for alignment
+        for service in self.services:
+            max_name_len = max(max_name_len, len(service.name))
+            max_version_len = max(max_version_len, len(service.version))
+            max_commits_len = max(max_commits_len, len(str(service.commits_ahead)))
+
+        # Update each item's title
+        for i, item in enumerate(list_view.children):
+            if i >= len(self.services):
+                break
+
+            service = self.services[i]
+            collapsible = item.query_one(Collapsible)
+            if collapsible is None:
+                continue
+
+            # Create formatted title with aligned columns
+            padded_name = service.name.ljust(max_name_len)
+            padded_version = service.version.ljust(max_version_len)
+            padded_commits = str(service.commits_ahead).rjust(max_commits_len)
+
+            # Add pipeline status to title if available
+            title_parts = [f"{padded_name} | {padded_version} | {padded_commits}"]
+            if hasattr(service, "pipeline_status") and service.pipeline_status:
+                title_parts.append(f" | Pipeline: {service.pipeline_status}")
+
+            title_text = "".join(title_parts)
+            collapsible.title = title_text
