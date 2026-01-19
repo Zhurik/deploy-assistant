@@ -11,9 +11,38 @@ from textual.widgets import (
 from textual.reactive import reactive
 from deploy_assistant.git import LocalRepo
 from deploy_assistant.elements.modal.modal import SelectedItemsScreen
+import webbrowser
+from textual.message import Message
 
-from deploy_assistant.git import LocalRepo
-from deploy_assistant.elements.modal.modal import SelectedItemsScreen
+
+class PipelineStatusLink(Label):
+    """Кастомный лейбл для отображения статуса пайплайна с цветовой индикацией и возможностью открытия ссылки."""
+
+    class Clicked(Message):
+        """Сообщение о клике на статус пайплайна."""
+
+        def __init__(self, url: str) -> None:
+            self.url = url
+            super().__init__()
+
+    def __init__(self, status: str, url: str):
+        # Определяем цвет в зависимости от статуса
+        color_map = {
+            "success": "green",
+            "failed": "red",
+            "running": "yellow",
+            "pending": "blue",
+        }
+
+        # Применяем стиль к тексту статуса
+        styled_status = f"[{color_map.get(status.lower(), 'white')}]{status}[/{color_map.get(status.lower(), 'white')}]"
+        self.url = url
+
+        super().__init__(styled_status)
+
+    def on_click(self) -> None:
+        """Отправляем сообщение о клике на пайплайн."""
+        self.post_message(self.Clicked(self.url))
 
 
 class CollapsibleListViewApp(App):
@@ -28,6 +57,7 @@ class CollapsibleListViewApp(App):
         ("a", "toggle_all", "Выбрать все"),
         ("e", "collapse_or_expand(False)", "Раскрыть все"),
         ("c", "collapse_or_expand(True)", "Схлопнуть все"),
+        ("o", "open_pipeline", "Открыть пайплайн"),
     ]
 
     def __init__(self, services: list[LocalRepo]):
@@ -80,12 +110,20 @@ class CollapsibleListViewApp(App):
 
             # Add pipeline status to title if available
             title_parts = [f"{padded_name} | {padded_version} | {padded_commits}"]
-            if pipeline_status:
-                title_parts.append(f" | Pipeline: {pipeline_status}")
+            if pipeline_status and pipeline_url:
+                # Создаем стилизованный статус пайплайна
+                color_map = {
+                    "success": "green",
+                    "failed": "red",
+                    "running": "yellow",
+                    "pending": "blue",
+                }
+                styled_status = f"[{color_map.get(pipeline_status.lower(), 'white')}]{pipeline_status}[/{color_map.get(pipeline_status.lower(), 'white')}]"
+                title_parts.append(f" | Pipeline: {styled_status}")
 
             title_text = "".join(title_parts)
 
-            # Create content with both commit messages and pipeline info
+            # Create content with commit messages only
             content_widgets = []
 
             # Add commit messages
@@ -96,25 +134,6 @@ class CollapsibleListViewApp(App):
             commit_text_area.read_only = False
             content_widgets.append(Label("Commit Messages:"))
             content_widgets.append(commit_text_area)
-
-            # Add pipeline info if available
-            if pipeline_status is not None:
-                pipeline_info = f"Pipeline Status: {pipeline_status}"
-                if pipeline_url:
-                    pipeline_info += f"\nPipeline URL: {pipeline_url}"
-                pipeline_label = Label(pipeline_info)
-                pipeline_label.styles.margin = (1, 0, 0, 0)
-
-                # Add CSS class based on pipeline status
-                if pipeline_status.lower() == "success":
-                    pipeline_label.add_class("pipeline-success")
-                elif pipeline_status.lower() == "failed":
-                    pipeline_label.add_class("pipeline-failed")
-                elif pipeline_status.lower() in ["running", "pending"]:
-                    pipeline_label.add_class("pipeline-running")
-
-                content_widgets.append(Label("Pipeline Info:"))
-                content_widgets.append(pipeline_label)
 
             collapsible = Collapsible(
                 *content_widgets,
@@ -136,6 +155,13 @@ class CollapsibleListViewApp(App):
     def on_mount(self) -> None:
         self.title = "Deploy Assistant"
         self.sub_title = "Раскатим все вдвое быстрее"
+
+    def on_pipeline_status_link_clicked(
+        self, event: PipelineStatusLink.Clicked
+    ) -> None:
+        """Обрабатываем клик по статусу пайплайна."""
+        if event.url:
+            webbrowser.open(event.url)
 
     """
     Collapse actions
@@ -251,6 +277,18 @@ class CollapsibleListViewApp(App):
         """Display the names of selected items with version upgrade info."""
         self.push_screen(SelectedItemsScreen(list(self.selected_items)))
 
+    def action_open_pipeline(self) -> None:
+        """Открываем пайплайн для выбранного элемента."""
+        list_view = self.query_one(ListView)
+        if list_view.highlighted_child is not None:
+            item_id = list_view.highlighted_child.id
+            if item_id is not None:
+                item_index = int(item_id.split("-")[-1])
+                if 0 <= item_index < len(self.services):
+                    service = self.services[item_index]
+                    if hasattr(service, "pipeline_url") and service.pipeline_url:
+                        webbrowser.open(service.pipeline_url)
+
     def refresh_pipeline_statuses(self) -> None:
         """Refresh the display with updated pipeline statuses."""
         list_view = self.query_one("#main-list-view", ListView)
@@ -284,8 +322,21 @@ class CollapsibleListViewApp(App):
 
             # Add pipeline status to title if available
             title_parts = [f"{padded_name} | {padded_version} | {padded_commits}"]
-            if hasattr(service, "pipeline_status") and service.pipeline_status:
-                title_parts.append(f" | Pipeline: {service.pipeline_status}")
+            if (
+                hasattr(service, "pipeline_status")
+                and service.pipeline_status
+                and hasattr(service, "pipeline_url")
+                and service.pipeline_url
+            ):
+                # Создаем стилизованный статус пайплайна
+                color_map = {
+                    "success": "green",
+                    "failed": "red",
+                    "running": "yellow",
+                    "pending": "blue",
+                }
+                styled_status = f"[{color_map.get(service.pipeline_status.lower(), 'white')}]{service.pipeline_status}[/{color_map.get(service.pipeline_status.lower(), 'white')}]"
+                title_parts.append(f" | Pipeline: {styled_status}")
 
             title_text = "".join(title_parts)
             collapsible.title = title_text
