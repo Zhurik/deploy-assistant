@@ -40,8 +40,8 @@ class SelectedItemsScreen(ModalScreen):
                     id="selected-items-footer",
                 ),
                 Vertical(
-                    Button("Да", id="yes-button", variant="success"),
                     Button("Нет", id="no-button", variant="error"),
+                    Button("Да", id="yes-button", variant="success"),
                     id="buttons-container",
                 ),
                 id="selected-items-dialog",
