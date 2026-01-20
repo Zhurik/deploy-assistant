@@ -4,6 +4,7 @@ from deploy_assistant.git import LocalRepo
 from deploy_assistant.config.config import Config
 from deploy_assistant.elements.listview.listview import CollapsibleListViewApp
 
+
 def main():
     config = Config()
 

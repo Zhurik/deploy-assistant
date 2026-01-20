@@ -1,6 +1,6 @@
 from .repo import LocalRepo
 
 
-__alL__ = [
+__all__ = [
     "LocalRepo",
 ]

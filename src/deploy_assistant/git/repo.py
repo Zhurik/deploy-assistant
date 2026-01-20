@@ -1,6 +1,5 @@
 import os
 import subprocess
-import time
 
 
 class LocalRepo:
@@ -62,14 +61,18 @@ class LocalRepo:
             os.chdir(self.local_path)
 
             # Определяем сообщение для тега
-            tag_message = self.modified_commit_messages if self.modified_commit_messages is not None else self.commit_messages
+            tag_message = (
+                self.modified_commit_messages
+                if self.modified_commit_messages is not None
+                else self.commit_messages
+            )
 
             # Создаем новый тег с сообщением
             subprocess.run(
                 ["git", "tag", "-a", self.new_version, "-m", tag_message],
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # Пушим тег
@@ -77,7 +80,7 @@ class LocalRepo:
                 ["git", "push", "origin", self.new_version],
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
         finally:

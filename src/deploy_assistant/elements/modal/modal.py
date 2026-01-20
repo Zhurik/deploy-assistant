@@ -76,13 +76,13 @@ class SelectedItemsScreen(ModalScreen):
                     f"Запушил сервис {repo.name} с версией {repo.new_version}",
                     title="Успешный деплой",
                     severity="information",
-                    timeout=5
+                    timeout=5,
                 )
-            except Exception as e:
+            except Exception:
                 # Show error notification
                 self.app.notify(
                     f"Что-то пошло не так при деплое {repo.name}",
                     title="Ошибка деплоя",
                     severity="error",
-                    timeout=10
+                    timeout=10,
                 )
