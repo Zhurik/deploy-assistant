@@ -1,18 +1,20 @@
 import os
 import subprocess
-import time
 import requests
 from typing import Optional
 
 
 class LocalRepo:
-    def __init__(self, local_path: str, name: str) -> None:
+    def __init__(
+        self, local_path: str, name: str, project_id: Optional[int] = None
+    ) -> None:
         self.local_path = local_path
         self.name = name
+        self.project_id = project_id
         self.modified_commit_messages: Optional[str] = None
         self.pipeline_status: Optional[str] = None
         self.pipeline_url: Optional[str] = None
-        self.gitlab_project_id: Optional[int] = None
+        self.gitlab_project_id: Optional[int] = project_id
         self.gitlab_addr: Optional[str] = None
         self.gitlab_token: Optional[str] = None
         self.version: str = ""

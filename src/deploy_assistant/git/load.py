@@ -6,11 +6,14 @@ from .repo import LocalRepo
 from deploy_assistant.config.config import Config
 
 
-def process_repo_standalone(local_path: str, name: str):
+def process_repo_standalone(
+    local_path: str, name: str, project_id: Optional[int] = None
+):
     """Process a single repository in a separate process."""
     repo = LocalRepo(
         local_path=local_path,
         name=name,
+        project_id=project_id,
     )
     repo.get_data()
     return repo
@@ -28,7 +31,10 @@ class Loader:
         with ProcessPoolExecutor(max_workers=4) as executor:
             future_to_service = {
                 executor.submit(
-                    process_repo_standalone, service["local_path"], service["name"]
+                    process_repo_standalone,
+                    service["local_path"],
+                    service["name"],
+                    service.get("id"),
                 ): service
                 for service in config.services
             }

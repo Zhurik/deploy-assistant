@@ -8,7 +8,6 @@ from textual.widgets import (
     TextArea,
     Label,
 )
-from textual.reactive import reactive
 from deploy_assistant.git import LocalRepo
 from deploy_assistant.elements.modal.modal import SelectedItemsScreen
 import webbrowser
@@ -57,7 +56,7 @@ class CollapsibleListViewApp(App):
         ("a", "toggle_all", "Выбрать все"),
         ("e", "collapse_or_expand(False)", "Раскрыть все"),
         ("c", "collapse_or_expand(True)", "Схлопнуть все"),
-        ("o", "open_pipeline", "Открыть пайплайн"),
+        ("p", "open_pipeline", "Открыть пайплайн"),
     ]
 
     def __init__(self, services: list[LocalRepo]):

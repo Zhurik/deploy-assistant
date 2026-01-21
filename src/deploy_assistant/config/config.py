@@ -1,8 +1,13 @@
 import yaml
+from typing import Optional
 
 
 class Config:
-    def __init__(self, config_path: str) -> None:
+    def __init__(self, config_path: Optional[str] = None) -> None:
+        # Если путь не указан, используем значение по умолчанию
+        if config_path is None:
+            config_path = "services.yaml"
+
         try:
             with open(config_path, "r") as file:
                 data = yaml.safe_load(file)
